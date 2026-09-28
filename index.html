@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated App Time Limiter Prototype</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #0f172a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Mobile Phone Container */
+        .phone-frame {
+            width: 360px;
+            height: 720px;
+            background: #ffffff;
+            border-radius: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 12px solid #1e293b;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Phone Notch / Header */
+        .phone-header {
+            background: #0f172a;
+            color: #ffffff;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .school-badge {
+            background: #1e3a8a;
+            color: #ffffff;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 600;
+            border-bottom: 2px solid #f59e0b;
+        }
+
+        /* Content Area */
+        .app-content {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .card-title {
+            font-size: 13px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-main {
+            font-size: 24px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #2563eb;
+            width: 65%;
+        }
+
+        /* App Item List */
+        .app-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .app-item:last-child {
+            border-bottom: none;
+        }
+
+        .app-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .app-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1e293b;
+        }
+
+        .app-time {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .badge-edu {
+            background: #dcfce7;
+            color: #15803d;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+
+        .btn-sim {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Lock Overlay Screen */
+        .lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            color: white;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 24px;
+            z-index: 100;
+        }
+
+        .lock-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .lock-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f87171;
+            margin-bottom: 8px;
+        }
+
+        .lock-msg {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .btn-unlock {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Bottom Nav */
+        .phone-nav {
+            height: 50px;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .nav-item.active {
+            color: #2563eb;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="phone-frame">
+        <!-- Status Bar -->
+        <div class="phone-header">
+            <span>9:41 AM</span>
+            <span>📶 100%</span>
+        </div>
+
+        <!-- School Header -->
+        <div class="school-badge">
+            CABITAN NATIONAL HIGH SCHOOL<br>
+            <span style="font-weight: normal; opacity: 0.8;">SHS Digital Wellness App</span>
+        </div>
+
+        <!-- Main Screen Content -->
+        <div class="app-content">
+            
+            <!-- Dashboard Card -->
+            <div class="card">
+                <div class="card-title">Daily Screen Time</div>
+                <div class="stat-main">2h 45m <span style="font-size: 14px; color: #64748b; font-weight: normal;">/ 3h 00m Limit</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Recreational Apps Section -->
+            <div class="card">
+                <div class="card-title">Recreational Apps (Restricted)</div>
+                
+                <!-- TikTok -->
+                <div class="app-item">
+                    <div class="app-info">
+                        <div class="app-icon" style="background: #000;">TT</div>
+                        <div>
+                            <div class="app-name">TikTok</div>
+                            <div class="app-time">42m / 45m used</div>
+                        </div>
+                    </div>
+                    <button class="btn-sim" onclick="triggerLock('TikTok')">Simulate Limit</button>
+                </div>
+
+                <!-- Mobile Legends -->
+                <div class="app-item">
+                    <div class="app-info">
+                        <div class="app-icon" style="background: #2563eb;">ML</div>
+                        <div>
+                            <div class="app-name">Mobile Legends</div>
+                            <div class="app-time">1h 15m / 1h 30m used</div>
+                        </div>
+                    </div>
+                    <button class="btn-sim" onclick="triggerLock('Mobile Legends')">Simulate Limit</button>
+                </div>
+
+                <!-- Facebook -->
+                <div class="app-item">
+                    <div class="app-info">
+                        <div class="app-icon" style="background: #1877f2;">FB</div>
+                        <div>
+                            <div class="app-name">Facebook</div>
+                            <div class="app-time">48m / 1h 00m used</div>
+                        </div>
+                    </div>
+                    <button class="btn-sim" onclick="triggerLock('Facebook')">Simulate Limit</button>
+                </div>
+            </div>
+
+            <!-- Educational Apps Section -->
+            <div class="card">
+                <div class="card-title">Educational Apps (Exempted)</div>
+                
+                <div class="app-item">
+                    <div class="app-info">
+                        <div class="app-icon" style="background: #16a34a;">GC</div>
+                        <div>
+                            <div class="app-name">Google Classroom</div>
+                            <div class="app-time">1h 20m used</div>
+                        </div>
+                    </div>
+                    <span class="badge-edu">UNLIMITED</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Lock Screen Overlay -->
+        <div class="lock-overlay" id="lockOverlay">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-title">Time Limit Reached!</div>
+            <div class="lock-msg">
+                Your daily time limit for <strong id="lockedAppName" style="color: white;">App</strong> has been reached.<br><br>
+                This application is locked for the rest of the day to help you focus on your schoolwork and responsibilities.
+            </div>
+            <button class="btn-unlock" onclick="closeLock()">Back to Dashboard</button>
+        </div>
+
+        <!-- Navigation Bar -->
+        <div class="phone-nav">
+            <div class="nav-item active">📊 Dashboard</div>
+            <div class="nav-item">⚙️ Limits</div>
+            <div class="nav-item">👤 Profile</div>
+        </div>
+    </div>
+
+    <script>
+        function triggerLock(appName) {
+            document.getElementById('lockedAppName').innerText = appName;
+            document.getElementById('lockOverlay').style.display = 'flex';
+        }
+
+        function closeLock() {
+            document.getElementById('lockOverlay').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
