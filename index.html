@@ -99,7 +99,27 @@
         .progress-fill {
             height: 100%;
             background: #2563eb;
-            width: 65%;
+            width: 0%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .btn-reset {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            width: 100%;
+            transition: background 0.2s ease;
+        }
+
+        .btn-reset:hover {
+            background: #e2e8f0;
+            color: #1e293b;
         }
 
         /* App Item List */
@@ -162,6 +182,7 @@
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s ease;
         }
 
         /* Lock Overlay Screen */
@@ -250,10 +271,13 @@
             <!-- Dashboard Card -->
             <div class="card">
                 <div class="card-title">Daily Screen Time</div>
-                <div class="stat-main">2h 45m <span style="font-size: 14px; color: #64748b; font-weight: normal;">/ 3h 00m Limit</span></div>
+                <div class="stat-main">
+                    0h 00m <span style="font-size: 14px; color: #64748b; font-weight: normal;">/ 3h 00m Limit</span>
+                </div>
                 <div class="progress-bar">
                     <div class="progress-fill"></div>
                 </div>
+                <button class="btn-reset" onclick="resetToDefaults()">↺ Reset All App Timers</button>
             </div>
 
             <!-- Recreational Apps Section -->
@@ -266,10 +290,10 @@
                         <div class="app-icon" style="background: #000;">TT</div>
                         <div>
                             <div class="app-name">TikTok</div>
-                            <div class="app-time">42m / 45m used</div>
+                            <div class="app-time" id="time-TikTok">--</div>
                         </div>
                     </div>
-                    <button class="btn-sim" onclick="triggerLock('TikTok')">Simulate Limit</button>
+                    <button class="btn-sim" id="btn-TikTok" onclick="toggleSimulate('TikTok')">Open App</button>
                 </div>
 
                 <!-- Mobile Legends -->
@@ -278,10 +302,10 @@
                         <div class="app-icon" style="background: #2563eb;">ML</div>
                         <div>
                             <div class="app-name">Mobile Legends</div>
-                            <div class="app-time">1h 15m / 1h 30m used</div>
+                            <div class="app-time" id="time-Mobile Legends">--</div>
                         </div>
                     </div>
-                    <button class="btn-sim" onclick="triggerLock('Mobile Legends')">Simulate Limit</button>
+                    <button class="btn-sim" id="btn-Mobile Legends" onclick="toggleSimulate('Mobile Legends')">Open App</button>
                 </div>
 
                 <!-- Facebook -->
@@ -290,10 +314,10 @@
                         <div class="app-icon" style="background: #1877f2;">FB</div>
                         <div>
                             <div class="app-name">Facebook</div>
-                            <div class="app-time">48m / 1h 00m used</div>
+                            <div class="app-time" id="time-Facebook">--</div>
                         </div>
                     </div>
-                    <button class="btn-sim" onclick="triggerLock('Facebook')">Simulate Limit</button>
+                    <button class="btn-sim" id="btn-Facebook" onclick="toggleSimulate('Facebook')">Open App</button>
                 </div>
             </div>
 
@@ -335,6 +359,153 @@
     </div>
 
     <script>
+        // 1. Initial Default Configuration (Limits in minutes, initial remaining seconds)
+        const DEFAULT_CONFIG = {
+            'TikTok': { limitMins: 45, remainingSecs: 3 * 60 },          // 3 minutes left for fast demonstration
+            'Mobile Legends': { limitMins: 90, remainingSecs: 15 * 60 },  // 15 minutes left
+            'Facebook': { limitMins: 60, remainingSecs: 12 * 60 }        // 12 minutes left
+        };
+
+        const TOTAL_LIMIT_SECS = 3 * 3600; // Total 3 Hours Limit
+        let appData = {};
+        let activeAppName = null;
+        let timerInterval = null;
+
+        // 2. Load from LocalStorage or initialize defaults
+        function loadData() {
+            const saved = localStorage.getItem('shs_wellness_countdown_data');
+            if (saved) {
+                appData = JSON.parse(saved);
+            } else {
+                resetToDefaults();
+            }
+            updateUI();
+        }
+
+        // 3. Save state to LocalStorage
+        function saveData() {
+            localStorage.setItem('shs_wellness_countdown_data', JSON.stringify(appData));
+        }
+
+        // 4. Time Formatting Helpers
+        function formatMinSec(seconds) {
+            if (seconds <= 0) return "00m 00s";
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+        }
+
+        function formatHoursMins(seconds) {
+            if (seconds <= 0) return "0h 00m";
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            return `${hrs}h ${mins < 10 ? '0' : ''}${mins}m`;
+        }
+
+        // 5. Update UI Text and Progress Bars
+        function updateUI() {
+            let totalRemainingSecs = 0;
+
+            for (const [appName, data] of Object.entries(appData)) {
+                const timeElement = document.getElementById(`time-${appName}`);
+                const btnElement = document.getElementById(`btn-${appName}`);
+
+                if (data.remainingSecs < 0) data.remainingSecs = 0;
+                totalRemainingSecs += data.remainingSecs;
+
+                const totalLimitSecs = data.limitMins * 60;
+
+                if (timeElement) {
+                    const remainingText = formatMinSec(data.remainingSecs);
+                    const limitText = formatHoursMins(totalLimitSecs);
+                    timeElement.innerHTML = `<strong>${remainingText} left</strong> / ${limitText} limit`;
+                }
+
+                if (btnElement) {
+                    if (data.remainingSecs <= 0) {
+                        btnElement.innerText = 'Locked';
+                        btnElement.style.background = '#94a3b8';
+                        btnElement.disabled = true;
+                    } else if (activeAppName === appName) {
+                        btnElement.innerText = 'Pause App';
+                        btnElement.className = 'btn-sim active';
+                        btnElement.style.background = '#f59e0b';
+                        btnElement.disabled = false;
+                    } else {
+                        btnElement.innerText = 'Open App';
+                        btnElement.className = 'btn-sim';
+                        btnElement.style.background = '#ef4444';
+                        btnElement.disabled = false;
+                    }
+                }
+            }
+
+            // Update Daily Summary Card
+            const totalText = document.querySelector('.stat-main');
+            const progressFill = document.querySelector('.progress-fill');
+
+            const totalUsedSecs = Math.max(0, TOTAL_LIMIT_SECS - totalRemainingSecs);
+
+            if (totalText) {
+                totalText.innerHTML = `${formatHoursMins(totalUsedSecs)} <span style="font-size: 14px; color: #64748b; font-weight: normal;">/ 3h 00m Limit</span>`;
+            }
+
+            if (progressFill) {
+                const usedPercentage = Math.min(100, (totalUsedSecs / TOTAL_LIMIT_SECS) * 100);
+                progressFill.style.width = `${usedPercentage}%`;
+
+                if (usedPercentage >= 100) {
+                    progressFill.style.backgroundColor = '#ef4444';
+                } else if (usedPercentage >= 80) {
+                    progressFill.style.backgroundColor = '#f59e0b';
+                } else {
+                    progressFill.style.backgroundColor = '#2563eb';
+                }
+            }
+        }
+
+        // 6. Real-Time Countdown Controller
+        function toggleSimulate(appName) {
+            if (activeAppName === appName) {
+                stopTimer();
+                updateUI();
+                return;
+            }
+
+            stopTimer();
+
+            if (appData[appName].remainingSecs <= 0) {
+                triggerLock(appName);
+                return;
+            }
+
+            activeAppName = appName;
+
+            timerInterval = setInterval(() => {
+                if (appData[activeAppName].remainingSecs > 0) {
+                    appData[activeAppName].remainingSecs--;
+                    saveData();
+                    updateUI();
+                } else {
+                    const lockedApp = activeAppName;
+                    stopTimer();
+                    updateUI();
+                    triggerLock(lockedApp);
+                }
+            }, 1000);
+
+            updateUI();
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            activeAppName = null;
+        }
+
+        // 7. Lock Overlay Handlers
         function triggerLock(appName) {
             document.getElementById('lockedAppName').innerText = appName;
             document.getElementById('lockOverlay').style.display = 'flex';
@@ -343,6 +514,34 @@
         function closeLock() {
             document.getElementById('lockOverlay').style.display = 'none';
         }
+
+        // 8. Reset Data Function
+        function resetToDefaults() {
+            stopTimer();
+            appData = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+            saveData();
+            updateUI();
+        }
+
+        // 9. Sync header status bar time with actual time
+        function updateHeaderClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = now.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            const formattedTime = `${hours}:${minutes < 10 ? '0' : ''}${minutes} ${ampm}`;
+            
+            const headerClock = document.querySelector('.phone-header span:first-child');
+            if (headerClock) headerClock.innerText = formattedTime;
+        }
+
+        // Initialize application on load
+        window.onload = function() {
+            loadData();
+            updateHeaderClock();
+            setInterval(updateHeaderClock, 60000);
+        };
     </script>
 </body>
 </html>
